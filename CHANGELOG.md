@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-11-11
+
 ### Added
 - Full API coverage: `mealie_api_request` calls any Mealie endpoint; `mealie_api_endpoints` and `mealie_api_schema` discover endpoints and body shapes from the instance's live `/openapi.json`
 - `mealie_recipes_reparse`: parses a recipe's plain-text ingredient lines server-side, matches or creates foods, keeps low-confidence lines as text, fills servings from yield text, and returns a compact summary
@@ -708,6 +710,7 @@ mealie_recipes_update_structured_ingredients(
 - GitHub Actions CI/CD for automated builds
 - Published to GitHub Container Registry (ghcr.io)
 
+[1.11.0]: https://github.com/warinthestars/mealie-mcp/releases/tag/v1.11.0
 [1.10.0]: https://github.com/warinthestars/mealie-mcp/releases/tag/v1.10.0
 [1.9.0]: https://github.com/warinthestars/mealie-mcp/releases/tag/v1.9.0
 [1.8.2]: https://github.com/mdlopresti/mealie-mcp/releases/tag/v1.8.2
