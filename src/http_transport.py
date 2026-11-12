@@ -32,7 +32,11 @@ class BearerAuthMiddleware:
         # so they get a plain 404. Answering them with 401 makes clients such
         # as Claude's custom connectors assume OAuth is required instead of
         # using the static bearer header they were configured with.
-        if scope["type"] != "http" or scope.get("path", "").startswith("/.well-known/"):
+        # FORK: the web UI (/ and /ui/...) is guarded separately in web_ui.py
+        # (Home Assistant ingress or loopback only), so it skips the bearer check.
+        path = scope.get("path", "")
+        if (scope["type"] != "http" or path.startswith("/.well-known/")
+                or path == "/" or path.startswith("/ui/")):
             await self.app(scope, receive, send)
             return
 
@@ -62,6 +66,13 @@ def run_http(mcp) -> None:
     path = os.getenv("MCP_PATH", "/mcp")
     token = os.getenv("MCP_AUTH_TOKEN", "").strip()
     log_level = os.getenv("MCP_LOG_LEVEL", "info").lower()
+
+    # FORK: web UI (Home Assistant "Open Web UI")
+    try:
+        from web_ui import register_ui
+        register_ui(mcp)
+    except Exception as e:  # the MCP endpoint must still start if the UI fails
+        print(f"Web UI not available: {e}", flush=True)
 
     middleware = [Middleware(BearerAuthMiddleware, token=token)] if token else []
     app = mcp.http_app(path=path, middleware=middleware)

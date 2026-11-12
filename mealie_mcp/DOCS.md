@@ -129,8 +129,25 @@ Mealie data, so treat it like a password.
    curl -i -X POST http://<home-assistant-ip>:8099/mcp
    ```
 
-The log doesn't prove Mealie is reachable. The first real tool call does.
-If tool calls fail with connection errors, see [Troubleshooting](#7-troubleshooting).
+4. Click **Open Web UI** (or **Mealie MCP** in the sidebar). The **Overview**
+   tab shows whether the server can reach Mealie, which Mealie user the token
+   belongs to (and whether it is an admin), and any warnings such as a missing
+   bearer token.
+
+If the Overview shows Mealie as not connected, see [Troubleshooting](#7-troubleshooting).
+
+### The web UI
+
+| Tab | What it does |
+| --- | --- |
+| Overview | Mealie connection and version, token user, server version, uptime, auth status, warnings |
+| Connect | Copy-ready setup for Claude Code, Claude Desktop and custom connectors. Edit the address at the top to match how your client reaches Home Assistant |
+| Tools | Turn individual tools or whole groups on or off. Turned-off tools are hidden from AI clients (they see the change after refreshing their tool list). Saved across restarts and updates |
+| Library | Counts of recipes, foods, foods without a shopping label, organizers, cookbooks and more. **Run audit** lists recipes with unparsed ingredients or missing images, servings, categories and so on |
+| Backups | List and create Mealie backups (needs an admin Mealie token) |
+
+The web UI is only reachable through Home Assistant, which handles the login.
+It is not exposed on port 8099 to the rest of your network.
 
 ## 5. Connect an AI client
 
