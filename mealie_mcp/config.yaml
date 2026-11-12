@@ -1,5 +1,5 @@
 name: Mealie MCP Server
-version: "1.12.0"
+version: "1.12.1"
 slug: mealie_mcp
 description: Model Context Protocol server exposing your Mealie recipes, meal plans and shopping lists to AI assistants.
 url: https://github.com/warinthestars/mealie-mcp
