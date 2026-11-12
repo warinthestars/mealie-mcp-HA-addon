@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.1] - 2026-11-12
+
+### Fixed
+- Published Home Assistant app container image for the 1.12 web UI release
+
 ## [1.12.0] - 2026-11-12
 
 ### Added
@@ -721,6 +726,7 @@ mealie_recipes_update_structured_ingredients(
 - GitHub Actions CI/CD for automated builds
 - Published to GitHub Container Registry (ghcr.io)
 
+[1.12.1]: https://github.com/warinthestars/mealie-mcp/releases/tag/v1.12.1
 [1.12.0]: https://github.com/warinthestars/mealie-mcp/releases/tag/v1.12.0
 [1.11.0]: https://github.com/warinthestars/mealie-mcp/releases/tag/v1.11.0
 [1.10.0]: https://github.com/warinthestars/mealie-mcp/releases/tag/v1.10.0
