@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.2] - 2026-11-12
+
 ### Added
 - `mealie_recipes_set_image_from_page`: set a recipe image from any web page, or from a Wikipedia article title (e.g. "Fish taco") for a look-alike photo, without changing the recipe's source URL
 
@@ -737,6 +739,7 @@ mealie_recipes_update_structured_ingredients(
 - GitHub Actions CI/CD for automated builds
 - Published to GitHub Container Registry (ghcr.io)
 
+[1.12.2]: https://github.com/warinthestars/mealie-mcp/releases/tag/v1.12.2
 [1.12.1]: https://github.com/warinthestars/mealie-mcp/releases/tag/v1.12.1
 [1.12.0]: https://github.com/warinthestars/mealie-mcp/releases/tag/v1.12.0
 [1.11.0]: https://github.com/warinthestars/mealie-mcp/releases/tag/v1.11.0
