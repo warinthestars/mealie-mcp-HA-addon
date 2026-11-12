@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-11-12
+
 ### Added
 - Web UI (Home Assistant "Open Web UI" button and sidebar panel via ingress, or http://localhost:8099/ outside Home Assistant):
   - Overview: Mealie connection, Mealie version, token user/admin check, server version, uptime, auth status and warnings
@@ -719,6 +721,7 @@ mealie_recipes_update_structured_ingredients(
 - GitHub Actions CI/CD for automated builds
 - Published to GitHub Container Registry (ghcr.io)
 
+[1.12.0]: https://github.com/warinthestars/mealie-mcp/releases/tag/v1.12.0
 [1.11.0]: https://github.com/warinthestars/mealie-mcp/releases/tag/v1.11.0
 [1.10.0]: https://github.com/warinthestars/mealie-mcp/releases/tag/v1.10.0
 [1.9.0]: https://github.com/warinthestars/mealie-mcp/releases/tag/v1.9.0
