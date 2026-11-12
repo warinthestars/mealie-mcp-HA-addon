@@ -7,6 +7,7 @@ Includes error handling, retry logic, and connection testing.
 
 import json
 import os
+import re
 from urllib.parse import quote
 import time
 from typing import Any, Dict, Optional, Union
@@ -138,6 +139,26 @@ def _parse_api_error(status_code: int, response_text: str) -> Dict[str, Any]:
 
     return result
 
+
+
+# FORK: normalize unicode / superscript fractions before sending text to Mealie's
+# ingredient parser. "¹/₄ cup" otherwise parses as a food named "¹/₄".
+_SUPER_SUB = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉⁄∕", "01234567890123456789//")
+_VULGAR = {
+    "½": "1/2", "⅓": "1/3", "⅔": "2/3", "¼": "1/4", "¾": "3/4", "⅕": "1/5", "⅖": "2/5",
+    "⅗": "3/5", "⅘": "4/5", "⅙": "1/6", "⅚": "5/6", "⅐": "1/7", "⅛": "1/8", "⅜": "3/8",
+    "⅝": "5/8", "⅞": "7/8", "⅑": "1/9", "⅒": "1/10",
+}
+_VULGAR_RE = re.compile("(\\d)?([" + "".join(_VULGAR) + "])")
+
+
+def normalize_fractions(text: str) -> str:
+    """Turn unicode fractions into plain ASCII ('1½' -> '1 1/2', '¹/₄' -> '1/4')."""
+    if not text:
+        return text
+    text = text.translate(_SUPER_SUB)
+    text = _VULGAR_RE.sub(lambda m: (m.group(1) + " " if m.group(1) else "") + _VULGAR[m.group(2)], text)
+    return re.sub(r"(\d)\s*/\s*(\d)", r"\1/\2", text)
 
 class MealieAPIError(Exception):
     """Base exception for Mealie API errors."""
@@ -498,7 +519,7 @@ class MealieClient:
             MealieAPIError: If parsing fails
         """
         payload = {
-            "ingredient": ingredient,
+            "ingredient": normalize_fractions(ingredient),
             "parser": parser
         }
         return self.post("/api/parser/ingredient", json=payload)
@@ -518,7 +539,7 @@ class MealieClient:
             MealieAPIError: If parsing fails
         """
         payload = {
-            "ingredients": ingredients,
+            "ingredients": [normalize_fractions(i) for i in ingredients],
             "parser": parser
         }
         return self.post("/api/parser/ingredients", json=payload)
