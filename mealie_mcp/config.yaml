@@ -10,6 +10,12 @@ image: ghcr.io/warinthestars/mealie-mcp-addon
 init: false
 startup: application
 boot: auto
+# FORK: web UI through Home Assistant ingress ("Open Web UI" and the sidebar panel).
+# Ingress proxies to the same port; the UI only answers the Supervisor (172.30.32.2).
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:chef-hat
+panel_title: Mealie MCP
 ports:
   8099/tcp: 8099
 ports_description:

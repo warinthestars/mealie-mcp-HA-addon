@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Web UI (Home Assistant "Open Web UI" button and sidebar panel via ingress, or http://localhost:8099/ outside Home Assistant):
+  - Overview: Mealie connection, Mealie version, token user/admin check, server version, uptime, auth status and warnings
+  - Connect: copy-ready setup for Claude Code, Claude Desktop (mcp-remote) and custom connectors
+  - Tools: turn individual tools or whole groups on/off; saved in `/data/ui_settings.json` and applied on start
+  - Library: counts of recipes, foods, unlabeled foods, organizers, cookbooks and more, plus a one-click recipe audit
+  - Backups: list and create Mealie backups
+- `MCP_UI_ENABLED=0` disables the UI; `MCP_UI_ALLOW_REMOTE=1` allows non-loopback access outside Home Assistant
+
 ## [1.11.0] - 2026-11-11
 
 ### Added

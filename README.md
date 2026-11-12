@@ -52,6 +52,8 @@ It can run three ways:
 - `mealie_shopping_generate_from_mealplan` - Generate shopping list from meal plan
 - `mealie_shopping_clear_checked` - Clear all checked items
 
+**Web UI** (Home Assistant "Open Web UI"): connection status, client setup snippets, per-tool on/off switches, library health and audit, backups
+
 **Full API & maintenance**
 - `mealie_api_request` / `mealie_api_endpoints` / `mealie_api_schema` - Call and discover any Mealie endpoint
 - `mealie_recipes_reparse` - Turn imported plain-text ingredients into structured ones, server-side
