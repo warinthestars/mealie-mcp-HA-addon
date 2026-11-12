@@ -200,8 +200,88 @@ class TestImages:
                    "c": {"slug": "c", "image": "abcd", "orgURL": "https://site/c"}}
         m = mock_client(get=lambda path, params=None: recipes[path.rsplit("/", 1)[-1]], post={"image": "new"})
         with patch("src.tools.extended.MealieClient", return_value=m), \
+                patch.object(extended, "image_file_exists", return_value=True), \
                 patch.object(extended, "find_image_on_page", return_value="https://img/a.jpg"):
             out = json.loads(recipes_fill_missing_images(slugs=["a", "b", "c"]))
         assert out["filled"] == [{"slug": "a", "image": "https://img/a.jpg"}]
         assert out["no_source_url"] == ["b"] and out["already_has_image"] == 1
         m.post.assert_called_once_with("/api/recipes/a/image", json={"url": "https://img/a.jpg", "includeTags": False})
+
+
+class TestImageFixes:
+    def test_audit_flags_missing_file(self):
+        def get(path, params=None):
+            return {"id": "1", "slug": "a", "name": "A", "image": "abcd", "description": "d",
+                    "recipeCategory": [1], "tags": [1], "tools": [1], "recipeServings": 2,
+                    "totalTimeSeconds": 60, "orgURL": "x", "recipeIngredient": []}
+        m = mock_client(get=get)
+        with patch("src.tools.extended.MealieClient", return_value=m), \
+                patch.object(extended, "image_file_exists", return_value=False):
+            out = json.loads(recipes_audit(slugs=["a"]))
+        assert out["recipes"][0]["flags"] == ["image_file_missing"]
+        with patch("src.tools.extended.MealieClient", return_value=m):
+            out = json.loads(recipes_audit(slugs=["a"], check_image_files=False))
+        assert out["recipes"][0]["flags"] == []
+
+    def test_image_file_exists(self):
+        m = mock_client()
+        m._build_url = lambda p: "http://mealie" + p
+        m.client.head.return_value = MagicMock(status_code=404)
+        assert extended.image_file_exists(m, {"id": "1", "image": "x"}) is False
+        m.client.head.return_value = MagicMock(status_code=200)
+        assert extended.image_file_exists(m, {"id": "1", "image": "x"}) is True
+        assert extended.image_file_exists(m, {"id": "1", "image": None}) is False
+
+    def test_missing_file_is_refilled_via_mealie_scraper(self):
+        recipe = {"id": "1", "slug": "a", "image": "old", "orgURL": "https://blocked/a"}
+        posts = []
+
+        def post(path, json=None):
+            posts.append((path, json))
+            if path == "/api/recipes/test-scrape-url":
+                return {"image": ["https://blocked/img.jpg", "https://blocked/img-500x500.jpg"]}
+            return {"image": "new"}
+        m = mock_client(get=recipe, post=post)
+        with patch("src.tools.extended.MealieClient", return_value=m), \
+                patch.object(extended, "image_file_exists", return_value=False), \
+                patch.object(extended, "find_image_on_page", side_effect=Exception("403")):
+            out = json.loads(recipes_fill_missing_images(slugs=["a"]))
+        assert out["missing_file"] == ["a"]
+        assert out["filled"] == [{"slug": "a", "image": "https://blocked/img.jpg"}]
+        assert posts[-1] == ("/api/recipes/a/image", {"url": "https://blocked/img.jpg", "includeTags": False})
+
+    def test_set_image_from_wikipedia_title(self):
+        m = mock_client(post={"image": "new"})
+        og = ("https://thumb.wikimedia.org/wikipedia/commons/thumb/1/18/S.jpg/1280px-S.jpg"
+              "?utm_source=en.wikipedia.org&amp;utm_campaign=index")
+        with patch("src.tools.extended.MealieClient", return_value=m), \
+                patch.object(extended, "find_image_on_page", return_value=og) as find:
+            out = json.loads(extended.recipes_set_image_from_page("shakshuka", "Fish taco"))
+        find.assert_called_once_with("https://en.wikipedia.org/wiki/Fish_taco")
+        assert out["image"] == "https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/S.jpg/1280px-S.jpg"
+        m.post.assert_called_once_with("/api/recipes/shakshuka/image", json={"url": out["image"], "includeTags": False})
+
+    def test_clean_image_url_unescapes(self):
+        assert extended.clean_image_url("https://a/b.jpg?x=1&amp;y=2") == "https://a/b.jpg?x=1&y=2"
+
+
+class TestFractions:
+    def test_normalize(self):
+        from src.client import normalize_fractions as n
+        assert n("¹/₄ teaspoon salt") == "1/4 teaspoon salt"
+        assert n("³/₄ cup milk") == "3/4 cup milk"
+        assert n("1½ cups flour") == "1 1/2 cups flour"
+        assert n("½ tsp") == "1/2 tsp"
+        assert n("2 cups") == "2 cups"
+
+    def test_reparse_sends_normalized_text(self):
+        recipe = {"slug": "r", "recipeYield": "", "recipeServings": 4,
+                  "recipeIngredient": [unparsed("¹/₄ teaspoon salt", "a")]}
+        recipe["recipeIngredient"][0]["originalText"] = "¹/₄ teaspoon salt"
+        m = mock_client(get=recipe, post=[parsed_result("1/4 teaspoon salt", 0.25,
+                                                         {"id": "u", "name": "teaspoon"},
+                                                         {"id": "f", "name": "salt"})])
+        with patch("src.tools.extended.MealieClient", return_value=m):
+            recipes_reparse("r", dry_run=True)
+        sent = m.post.call_args.kwargs["json"]["ingredients"]
+        assert sent == ["1/4 teaspoon salt"]

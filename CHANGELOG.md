@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `mealie_recipes_set_image_from_page`: set a recipe image from any web page, or from a Wikipedia article title (e.g. "Fish taco") for a look-alike photo, without changing the recipe's source URL
+
+### Changed
+- `mealie_recipes_audit` now checks that each recipe's image file is really served by Mealie and flags `image_file_missing` (the image field can point at a file that no longer exists). Turn off with `check_image_files=false`
+- `mealie_recipes_fill_missing_images` now also refills recipes whose image file is missing, and retries through Mealie's own scraper (`/api/recipes/test-scrape-url`) when a site blocks direct requests (403)
+
+### Fixed
+- Ingredient parsing: unicode and superscript fractions (`½`, `1½`, `¹/₄`) are converted to plain fractions before parsing, so they no longer become foods named "¹/₄"
+- Image URLs taken from og:image are HTML-unescaped, and Wikimedia tracking query strings are removed
+
 ## [1.12.1] - 2026-11-12
 
 ### Fixed

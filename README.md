@@ -57,9 +57,10 @@ It can run three ways:
 **Full API & maintenance**
 - `mealie_api_request` / `mealie_api_endpoints` / `mealie_api_schema` - Call and discover any Mealie endpoint
 - `mealie_recipes_reparse` - Turn imported plain-text ingredients into structured ones, server-side
-- `mealie_recipes_audit` - Find recipes missing images, servings, categories, parsed ingredients and more
+- `mealie_recipes_audit` - Find recipes missing images (including image files deleted from the server), servings, categories, parsed ingredients and more
 - `mealie_recipes_patch` / `mealie_recipes_set_tools` - Edit any recipe field; assign kitchen tools
-- `mealie_recipes_fill_missing_images` - Add images from each recipe's source page
+- `mealie_recipes_fill_missing_images` - Add images from each recipe's source page (falls back to Mealie's own scraper when a site blocks requests)
+- `mealie_recipes_set_image_from_page` - Set an image from any page, or a Wikipedia article title for a look-alike photo, without changing the source URL
 
 **Foods & Labels**
 - `mealie_foods_list` - List foods with `search`, `query_filter` (e.g. `labelId IS NULL`) and a compact `slim` view

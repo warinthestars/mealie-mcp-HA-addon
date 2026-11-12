@@ -6,9 +6,11 @@ Extended Mealie tools (FORK).
 - Recipe maintenance done server-side so clients get compact results:
   re-parse ingredients, partial recipe updates, kitchen tools, audits.
 - Recipe images: let Mealie download an image URL, or find the image on the recipe's
-  own source page (og:image / JSON-LD).
+  own source page (og:image / JSON-LD), falling back to Mealie's own scraper when a site
+  blocks us. Audits check that image files really exist, not just the image field.
 """
 
+import html
 import json
 import re
 import sys
@@ -18,10 +20,10 @@ from typing import Any, Optional
 import httpx
 
 try:
-    from ..client import MealieClient, MealieAPIError
+    from ..client import MealieClient, MealieAPIError, normalize_fractions
 except ImportError:
     sys.path.insert(0, str(Path(__file__).parent.parent))
-    from client import MealieClient, MealieAPIError
+    from client import MealieClient, MealieAPIError, normalize_fractions
 
 
 ALLOWED_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE"}
@@ -299,7 +301,8 @@ def recipes_reparse(
 
             if pairs:
                 parsed = client.post("/api/parser/ingredients",
-                                     json={"parser": parser, "ingredients": [t for _, t in pairs]})
+                                     json={"parser": parser,
+                                           "ingredients": [normalize_fractions(t) for _, t in pairs]})
                 food_cache: dict[str, dict] = {}
                 for (idx, text), result in zip(pairs, parsed):
                     old = ingredients[idx]
@@ -365,7 +368,22 @@ def recipes_reparse(
 # Audit
 # -----------------------------------------------------------------------------
 
-def recipes_audit(slugs: Optional[list[str]] = None) -> str:
+def image_file_exists(client: MealieClient, recipe: dict) -> bool:
+    """True when Mealie actually serves the recipe's image file (the image field can
+    point at a file that no longer exists on disk)."""
+    if not recipe.get("image") or not recipe.get("id"):
+        return False
+    url = client._build_url(f"/api/media/recipes/{recipe['id']}/images/min-original.webp")
+    try:
+        resp = client.client.head(url)
+        if resp.status_code == 405:  # HEAD not allowed: fall back to a GET
+            resp = client.client.get(url)
+        return resp.status_code == 200
+    except Exception:
+        return False
+
+
+def recipes_audit(slugs: Optional[list[str]] = None, check_image_files: bool = True) -> str:
     """One compact row per recipe with data-quality flags."""
     try:
         with MealieClient() as client:
@@ -381,6 +399,8 @@ def recipes_audit(slugs: Optional[list[str]] = None) -> str:
                     flags.append(f"unparsed_ingredients:{unparsed}/{len(ings)}")
                 if not r.get("image"):
                     flags.append("no_image")
+                elif check_image_files and not image_file_exists(client, r):
+                    flags.append("image_file_missing")
                 if not (r.get("description") or "").strip():
                     flags.append("no_description")
                 if not r.get("recipeCategory"):
@@ -456,6 +476,56 @@ def _ld_image(node: Any) -> Optional[str]:
     return None
 
 
+def clean_image_url(url: Optional[str]) -> Optional[str]:
+    """Unescape HTML entities and drop tracking query strings Wikimedia adds to og:image."""
+    if not url:
+        return url
+    url = html.unescape(url.strip())
+    if "wikimedia.org/" in url:
+        url = url.split("?", 1)[0].replace("://thumb.wikimedia.org/", "://upload.wikimedia.org/")
+    return url
+
+
+def wikipedia_url(page: str) -> str:
+    """Accept a full URL or a Wikipedia article title ('Shakshouka', 'Fish taco')."""
+    page = page.strip()
+    if page.startswith(("http://", "https://")):
+        return page
+    return "https://en.wikipedia.org/wiki/" + page.replace(" ", "_")
+
+
+def scrape_image_via_mealie(client: MealieClient, url: str) -> Optional[str]:
+    """Ask Mealie's own recipe scraper for the page's recipe image. Works on sites that
+    return 403 to plain HTTP clients."""
+    try:
+        data = client.post("/api/recipes/test-scrape-url", json={"url": url})
+    except Exception:
+        return None
+    if not isinstance(data, dict):
+        return None
+    img = data.get("image")
+    if isinstance(img, list):
+        img = img[0] if img else None
+    if isinstance(img, dict):
+        img = img.get("url")
+    return img if isinstance(img, str) and img.startswith("http") else None
+
+
+def image_for_page(client: MealieClient, url: str) -> tuple[Optional[str], Optional[str]]:
+    """(image_url, error). Tries the page directly, then Mealie's scraper."""
+    error = None
+    try:
+        found = find_image_on_page(url)
+        if found:
+            return clean_image_url(found), None
+    except Exception as e:
+        error = f"fetch {url}: {e}"
+    found = scrape_image_via_mealie(client, url)
+    if found:
+        return clean_image_url(found), None
+    return None, error
+
+
 def find_image_on_page(url: str) -> Optional[str]:
     """Return the recipe image URL from a page's JSON-LD Recipe or og:image."""
     resp = httpx.get(url, headers={"User-Agent": BROWSER_UA}, timeout=20.0, follow_redirects=True)
@@ -475,31 +545,52 @@ def find_image_on_page(url: str) -> Optional[str]:
     return None
 
 
+def recipes_set_image_from_page(slug: str, page: str) -> str:
+    """Set a recipe image from any web page (or a Wikipedia article title) without
+    changing the recipe's source URL. Useful for look-alike photos."""
+    try:
+        with MealieClient() as client:
+            url = wikipedia_url(page)
+            image, error = image_for_page(client, url)
+            if not image:
+                return json.dumps({"success": False, "slug": slug, "page": url,
+                                   "error": error or "no image found on page"}, indent=2)
+            client.post(f"/api/recipes/{slug}/image", json={"url": image, "includeTags": False})
+            return json.dumps({"success": True, "slug": slug, "page": url, "image": image}, indent=2)
+    except MealieAPIError as e:
+        return _api_error(e)
+    except Exception as e:
+        return _unexpected(e)
+
+
 def recipes_fill_missing_images(slugs: Optional[list[str]] = None, dry_run: bool = False,
-                                replace_existing: bool = False) -> str:
-    """For recipes without an image, take the image from the recipe's own source page (orgURL)."""
+                                replace_existing: bool = False, check_files: bool = True) -> str:
+    """For recipes without a working image, take the image from the recipe's own source
+    page (orgURL), using Mealie's scraper when the site blocks direct requests."""
     try:
         with MealieClient() as client:
             if not slugs:
                 slugs = [r["slug"] for r in _list_all(client, "/api/recipes")]
             report: dict[str, list] = {"filled": [], "would_fill": [], "already_has_image": [],
-                                       "no_source_url": [], "no_image_on_page": [], "errors": []}
+                                       "missing_file": [], "no_source_url": [],
+                                       "no_image_on_page": [], "errors": []}
             for slug in slugs:
                 r = client.get(f"/api/recipes/{slug}")
                 if r.get("image") and not replace_existing:
-                    report["already_has_image"].append(slug)
-                    continue
+                    if not check_files or image_file_exists(client, r):
+                        report["already_has_image"].append(slug)
+                        continue
+                    report["missing_file"].append(slug)
                 source = r.get("orgURL")
                 if not source:
                     report["no_source_url"].append(slug)
                     continue
-                try:
-                    image = find_image_on_page(source)
-                except Exception as e:
-                    report["errors"].append({"slug": slug, "error": f"fetch {source}: {e}"})
-                    continue
+                image, error = image_for_page(client, source)
                 if not image:
-                    report["no_image_on_page"].append({"slug": slug, "source": source})
+                    if error:
+                        report["errors"].append({"slug": slug, "error": error})
+                    else:
+                        report["no_image_on_page"].append({"slug": slug, "source": source})
                     continue
                 if dry_run:
                     report["would_fill"].append({"slug": slug, "image": image})

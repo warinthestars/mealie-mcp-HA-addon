@@ -142,6 +142,7 @@ from tools.extended import (
     recipes_audit,
     recipes_set_image_from_url,
     recipes_fill_missing_images,
+    recipes_set_image_from_page,
 )
 from tools.labels import (
     labels_list,
@@ -2179,18 +2180,20 @@ def mealie_recipes_reparse(
 
 
 @mcp.tool()
-def mealie_recipes_audit(slugs: list[str] | None = None) -> str:
+def mealie_recipes_audit(slugs: list[str] | None = None, check_image_files: bool = True) -> str:
     """Data-quality report: one compact row per recipe with flags such as
-    unparsed_ingredients, no_image, no_description, no_category, no_tags, no_tools,
-    no_servings, no_total_time, no_source_url.
+    unparsed_ingredients, no_image, image_file_missing, no_description, no_category,
+    no_tags, no_tools, no_servings, no_total_time, no_source_url.
 
     Args:
         slugs: Only these recipes (default: all)
+        check_image_files: Also check that each image file is really served by Mealie
+            (catches recipes whose image field points at a deleted file)
 
     Returns:
         JSON string with flag counts and per-recipe flags
     """
-    return recipes_audit(slugs=slugs)
+    return recipes_audit(slugs=slugs, check_image_files=check_image_files)
 
 
 @mcp.tool()
@@ -2212,22 +2215,45 @@ def mealie_recipes_fill_missing_images(
     slugs: list[str] | None = None,
     dry_run: bool = False,
     replace_existing: bool = False,
+    check_files: bool = True,
 ) -> str:
     """Give recipes an image from their own source page (orgURL).
 
-    For each recipe without an image, fetches its source page, takes the recipe image
-    from the page's Recipe JSON-LD (or og:image), and has Mealie download it. Recipes
-    without a source URL are listed so an image can be supplied another way.
+    For each recipe without a working image (no image, or an image whose file is
+    missing), fetches its source page, takes the recipe image from the page's Recipe
+    JSON-LD (or og:image), and has Mealie download it. Sites that block direct requests
+    are retried through Mealie's own scraper. Recipes without a source URL are listed so
+    an image can be supplied with mealie_recipes_set_image_from_page.
 
     Args:
         slugs: Only these recipes (default: all)
         dry_run: Only report which image would be used
         replace_existing: Also replace images on recipes that already have one
+        check_files: Treat recipes whose image file is missing as needing an image
 
     Returns:
-        JSON report: filled, would_fill, no_source_url, no_image_on_page, errors
+        JSON report: filled, would_fill, missing_file, no_source_url, no_image_on_page, errors
     """
-    return recipes_fill_missing_images(slugs=slugs, dry_run=dry_run, replace_existing=replace_existing)
+    return recipes_fill_missing_images(slugs=slugs, dry_run=dry_run, replace_existing=replace_existing,
+                                       check_files=check_files)
+
+
+@mcp.tool()
+def mealie_recipes_set_image_from_page(slug: str, page: str) -> str:
+    """Set a recipe's image from any web page, without changing its source URL.
+
+    Takes the page's recipe image (JSON-LD) or og:image, using Mealie's scraper if the
+    site blocks direct requests. Pass a Wikipedia article title (e.g. "Shakshouka",
+    "Fish taco") to use that dish's lead photo as a look-alike stand-in.
+
+    Args:
+        slug: Recipe slug
+        page: Page URL, or a Wikipedia article title
+
+    Returns:
+        JSON string with the image used
+    """
+    return recipes_set_image_from_page(slug=slug, page=page)
 
 
 # =============================================================================
