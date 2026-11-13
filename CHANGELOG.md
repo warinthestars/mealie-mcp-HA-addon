@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.3] - 2026-11-13
+
 ### Fixed
 - `mealie_mealplans_search` and `mealie_mealplans_delete_range` crashed with "'str' object has no attribute 'get'": Mealie returns the meal plan list endpoint as a paginated object, which they iterated as a list
 - `mealie_mealplans_get_date` reported one bogus entry (built from the pagination wrapper) instead of the day's meals
@@ -746,6 +748,7 @@ mealie_recipes_update_structured_ingredients(
 - GitHub Actions CI/CD for automated builds
 - Published to GitHub Container Registry (ghcr.io)
 
+[1.12.3]: https://github.com/warinthestars/mealie-mcp/releases/tag/v1.12.3
 [1.12.2]: https://github.com/warinthestars/mealie-mcp/releases/tag/v1.12.2
 [1.12.1]: https://github.com/warinthestars/mealie-mcp/releases/tag/v1.12.1
 [1.12.0]: https://github.com/warinthestars/mealie-mcp/releases/tag/v1.12.0
