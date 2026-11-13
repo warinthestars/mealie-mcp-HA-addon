@@ -19,6 +19,30 @@ except ImportError:
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from client import MealieClient, MealieAPIError
 
+
+def _mealplan_entries(response) -> list:
+    """Normalize a /api/households/mealplans response to a list of entries.
+
+    Mealie returns a paginated object ({"page", "perPage", "items", ...}) for
+    the list endpoint. Iterating that dict directly yields its keys (strings),
+    which is what broke search/delete-range ("'str' object has no attribute 'get'").
+    Plain lists (older Mealie, tests) and single entries are also accepted.
+    """
+    if isinstance(response, list):
+        return response
+    if isinstance(response, dict):
+        items = response.get("items")
+        if isinstance(items, list):
+            return items
+        if response.get("id") is not None:
+            return [response]
+    return []
+
+
+def _mealplan_params(start_date: str, end_date: str) -> dict:
+    """Query params for the mealplans list endpoint, returning every page."""
+    return {"start_date": start_date, "end_date": end_date, "perPage": -1}
+
 # Sentinel value for clearing optional fields
 CLEAR_FIELD = "__CLEAR__"
 
@@ -49,12 +73,9 @@ def mealplans_list(
             else:
                 end = date.fromisoformat(end_date)
 
-            params = {
-                "start_date": start.isoformat(),
-                "end_date": end.isoformat(),
-            }
+            params = _mealplan_params(start.isoformat(), end.isoformat())
 
-            response = client.get("/api/households/mealplans", params=params)
+            response = _mealplan_entries(client.get("/api/households/mealplans", params=params))
 
             # Format response
             if isinstance(response, list):
@@ -440,12 +461,9 @@ def mealplans_get_by_date(meal_date: str) -> str:
     """
     try:
         with MealieClient() as client:
-            params = {
-                "start_date": meal_date,
-                "end_date": meal_date,
-            }
+            params = _mealplan_params(meal_date, meal_date)
 
-            response = client.get("/api/households/mealplans", params=params)
+            response = _mealplan_entries(client.get("/api/households/mealplans", params=params))
 
             if not response:
                 return json.dumps({
@@ -684,7 +702,9 @@ def mealplans_search(
 
         with MealieClient() as client:
             # Get all meal plans in date range
-            all_plans = client.get(f"/api/households/mealplans?start_date={start_date}&end_date={end_date}")
+            all_plans = _mealplan_entries(
+                client.get("/api/households/mealplans", params=_mealplan_params(start_date, end_date))
+            )
 
             # Normalize query to lowercase for case-insensitive search
             query_lower = query.lower()
@@ -756,7 +776,9 @@ def mealplans_delete_range(
 
         with MealieClient() as client:
             # Get all meal plans in date range
-            all_plans = client.get(f"/api/households/mealplans?start_date={start_date}&end_date={end_date}")
+            all_plans = _mealplan_entries(
+                client.get("/api/households/mealplans", params=_mealplan_params(start_date, end_date))
+            )
 
             # Delete each meal plan
             deleted_count = 0

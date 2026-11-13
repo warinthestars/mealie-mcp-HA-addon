@@ -447,6 +447,7 @@ def shopping_generate_from_mealplan(
             mealplan_response = client.get("/api/households/mealplans", params={
                 "start_date": start.isoformat(),
                 "end_date": end.isoformat(),
+                "perPage": -1,
             })
 
             if not mealplan_response:
