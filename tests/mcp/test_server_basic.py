@@ -170,9 +170,10 @@ class TestMCPToolInvocation:
         # Parse response
         text = extract_tool_result_text(result)
         data = json.loads(text)
-        # The API returns "items" and "total"
-        assert "items" in data
-        assert data["total"] == 1
+        # The paginated API response ("items"/"total") is unwrapped and formatted
+        assert data["count"] == 1
+        assert data["entries"][0]["id"] == "meal-1"
+        assert data["entries"][0]["entry_type"] == "dinner"
 
 
 class TestMCPToolParameters:

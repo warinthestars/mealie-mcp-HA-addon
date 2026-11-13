@@ -39,7 +39,11 @@ def get_current_mealplan() -> str:
         response = client.get("/api/households/mealplans", params={
             "start_date": week_start.isoformat(),
             "end_date": week_end.isoformat(),
+            "perPage": -1,
         })
+        # Mealie returns a paginated object; unwrap its items
+        if isinstance(response, dict):
+            response = response.get("items", [])
 
         client.close()
 

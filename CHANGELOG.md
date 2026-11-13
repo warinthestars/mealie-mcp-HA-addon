@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `mealie_mealplans_search` and `mealie_mealplans_delete_range` crashed with "'str' object has no attribute 'get'": Mealie returns the meal plan list endpoint as a paginated object, which they iterated as a list
+- `mealie_mealplans_get_date` reported one bogus entry (built from the pagination wrapper) instead of the day's meals
+- `mealie_mealplans_list` returned Mealie's raw paginated response (full recipe objects) instead of its compact `entries` format
+- The `mealplans://current` resource always showed an empty week
+- Meal plan lookups (including shopping-list generation from a meal plan) now request every page (`perPage=-1`) instead of only Mealie's first 50 entries
+
 ## [1.12.2] - 2026-11-12
 
 ### Added

@@ -1062,3 +1062,63 @@ class TestMealPlansBatchOperations:
         assert data.get("updated") == 0
         assert data.get("failed") == 1
         assert len(data.get("failures", [])) == 1
+
+
+class TestMealplansPaginatedResponse:
+    """Regression: Mealie returns the mealplans list endpoint as a paginated
+    object. Iterating it as a list raised "'str' object has no attribute 'get'"."""
+
+    PLANS = [
+        {"id": 1, "date": "2026-11-11", "entryType": "dinner", "title": "", "text": "",
+         "recipeId": "r1", "recipe": {"id": "r1", "name": "Seafood Mac and Cheese", "slug": "seafood-mac-and-cheese"}},
+        {"id": 2, "date": "2026-11-12", "entryType": "lunch", "title": "Leftovers", "text": None,
+         "recipeId": None, "recipe": None},
+    ]
+
+    def paginated(self):
+        return {"page": 1, "per_page": -1, "total": len(self.PLANS), "total_pages": 1,
+                "items": self.PLANS, "next": None, "previous": None}
+
+    def test_search_handles_paginated_response(self):
+        mock_client = create_mock_client(get_value=self.paginated())
+        with patch('src.tools.mealplans.MealieClient', return_value=mock_client):
+            data = json.loads(mealplans_search("mac", "2026-11-01", "2026-11-30"))
+        assert data.get("success") is True, data
+        assert data["count"] == 1
+        assert data["meal_plans"][0]["id"] == 1
+
+    def test_search_requests_all_pages(self):
+        mock_client = create_mock_client(get_value=self.paginated())
+        with patch('src.tools.mealplans.MealieClient', return_value=mock_client):
+            mealplans_search("mac", "2026-11-01", "2026-11-30")
+        _, kwargs = mock_client.get.call_args
+        assert kwargs["params"]["perPage"] == -1
+
+    def test_delete_range_handles_paginated_response(self):
+        mock_client = create_mock_client(get_value=self.paginated())
+        with patch('src.tools.mealplans.MealieClient', return_value=mock_client):
+            data = json.loads(mealplans_delete_range("2026-11-01", "2026-11-30"))
+        assert data.get("success") is True, data
+        assert data["total_found"] == 2
+        assert data["deleted"] == 2
+
+    def test_get_by_date_handles_paginated_response(self):
+        page = {"page": 1, "items": [self.PLANS[0]], "total": 1}
+        mock_client = create_mock_client(get_value=page)
+        with patch('src.tools.mealplans.MealieClient', return_value=mock_client):
+            data = json.loads(mealplans_get_by_date("2026-11-11"))
+        assert data["count"] == 1
+        assert data["meals"]["dinner"][0]["recipe_name"] == "Seafood Mac and Cheese"
+
+    def test_get_by_date_empty_page(self):
+        mock_client = create_mock_client(get_value={"page": 1, "items": [], "total": 0})
+        with patch('src.tools.mealplans.MealieClient', return_value=mock_client):
+            data = json.loads(mealplans_get_by_date("2026-11-13"))
+        assert data["count"] == 0
+
+    def test_list_formats_paginated_response(self):
+        mock_client = create_mock_client(get_value=self.paginated())
+        with patch('src.tools.mealplans.MealieClient', return_value=mock_client):
+            data = json.loads(mealplans_list("2026-11-01", "2026-11-30"))
+        assert data["count"] == 2
+        assert data["entries"][0]["recipe_name"] == "Seafood Mac and Cheese"
