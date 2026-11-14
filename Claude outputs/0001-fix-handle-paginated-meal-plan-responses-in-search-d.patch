@@ -1,0 +1,264 @@
+From 1cff7c60f47d57348fa238976e308e7ae604389d Mon Sep 17 00:00:00 2001
+From: warinthestars <24512395+warinthestars@users.noreply.github.com>
+Date: Fri, 13 Nov 2026 08:14:35 -0500
+Subject: [PATCH] fix: handle paginated meal plan responses in search,
+ delete-range, get-date, list and current-week resource
+
+Mealie returns /api/households/mealplans as a paginated object. Several
+tools iterated it as a list, so iterating yielded the dict's keys and
+crashed with "'str' object has no attribute 'get'". Add _mealplan_entries()
+to unwrap items, request all pages with perPage=-1, and add regression
+tests using the real paginated shape.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01FkFmzos32pZj9Uor6gNdBe
+---
+ CHANGELOG.md                   |  7 ++++
+ mealie_mcp/CHANGELOG.md        |  7 ++++
+ src/resources/mealplans.py     |  4 +++
+ src/tools/mealplans.py         | 46 +++++++++++++++++++-------
+ src/tools/shopping.py          |  1 +
+ tests/mcp/test_server_basic.py |  7 ++--
+ tests/test_tools_mealplans.py  | 60 ++++++++++++++++++++++++++++++++++
+ 7 files changed, 117 insertions(+), 15 deletions(-)
+
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index fe36c12..e1e81f8 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
+ 
+ ## [Unreleased]
+ 
++### Fixed
++- `mealie_mealplans_search` and `mealie_mealplans_delete_range` crashed with "'str' object has no attribute 'get'": Mealie returns the meal plan list endpoint as a paginated object, which they iterated as a list
++- `mealie_mealplans_get_date` reported one bogus entry (built from the pagination wrapper) instead of the day's meals
++- `mealie_mealplans_list` returned Mealie's raw paginated response (full recipe objects) instead of its compact `entries` format
++- The `mealplans://current` resource always showed an empty week
++- Meal plan lookups (including shopping-list generation from a meal plan) now request every page (`perPage=-1`) instead of only Mealie's first 50 entries
++
+ ## [1.12.2] - 2026-11-12
+ 
+ ### Added
+diff --git a/mealie_mcp/CHANGELOG.md b/mealie_mcp/CHANGELOG.md
+index f95ec3b..3188bfd 100644
+--- a/mealie_mcp/CHANGELOG.md
++++ b/mealie_mcp/CHANGELOG.md
+@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
+ 
+ ## [Unreleased]
+ 
++### Fixed
++- `mealie_mealplans_search` and `mealie_mealplans_delete_range` crashed with "'str' object has no attribute 'get'": Mealie returns the meal plan list endpoint as a paginated object, which they iterated as a list
++- `mealie_mealplans_get_date` reported one bogus entry (built from the pagination wrapper) instead of the day's meals
++- `mealie_mealplans_list` returned Mealie's raw paginated response (full recipe objects) instead of its compact `entries` format
++- The `mealplans://current` resource always showed an empty week
++- Meal plan lookups (including shopping-list generation from a meal plan) now request every page (`perPage=-1`) instead of only Mealie's first 50 entries
++
+ ## [1.12.2] - 2026-11-12
+ 
+ ### Added
+diff --git a/src/resources/mealplans.py b/src/resources/mealplans.py
+index f402d85..fc883e0 100644
+--- a/src/resources/mealplans.py
++++ b/src/resources/mealplans.py
+@@ -39,7 +39,11 @@ def get_current_mealplan() -> str:
+         response = client.get("/api/households/mealplans", params={
+             "start_date": week_start.isoformat(),
+             "end_date": week_end.isoformat(),
++            "perPage": -1,
+         })
++        # Mealie returns a paginated object; unwrap its items
++        if isinstance(response, dict):
++            response = response.get("items", [])
+ 
+         client.close()
+ 
+diff --git a/src/tools/mealplans.py b/src/tools/mealplans.py
+index 045c787..dbc6a73 100644
+--- a/src/tools/mealplans.py
++++ b/src/tools/mealplans.py
+@@ -19,6 +19,30 @@ except ImportError:
+     sys.path.insert(0, str(Path(__file__).parent.parent))
+     from client import MealieClient, MealieAPIError
+ 
++
++def _mealplan_entries(response) -> list:
++    """Normalize a /api/households/mealplans response to a list of entries.
++
++    Mealie returns a paginated object ({"page", "perPage", "items", ...}) for
++    the list endpoint. Iterating that dict directly yields its keys (strings),
++    which is what broke search/delete-range ("'str' object has no attribute 'get'").
++    Plain lists (older Mealie, tests) and single entries are also accepted.
++    """
++    if isinstance(response, list):
++        return response
++    if isinstance(response, dict):
++        items = response.get("items")
++        if isinstance(items, list):
++            return items
++        if response.get("id") is not None:
++            return [response]
++    return []
++
++
++def _mealplan_params(start_date: str, end_date: str) -> dict:
++    """Query params for the mealplans list endpoint, returning every page."""
++    return {"start_date": start_date, "end_date": end_date, "perPage": -1}
++
+ # Sentinel value for clearing optional fields
+ CLEAR_FIELD = "__CLEAR__"
+ 
+@@ -49,12 +73,9 @@ def mealplans_list(
+             else:
+                 end = date.fromisoformat(end_date)
+ 
+-            params = {
+-                "start_date": start.isoformat(),
+-                "end_date": end.isoformat(),
+-            }
++            params = _mealplan_params(start.isoformat(), end.isoformat())
+ 
+-            response = client.get("/api/households/mealplans", params=params)
++            response = _mealplan_entries(client.get("/api/households/mealplans", params=params))
+ 
+             # Format response
+             if isinstance(response, list):
+@@ -440,12 +461,9 @@ def mealplans_get_by_date(meal_date: str) -> str:
+     """
+     try:
+         with MealieClient() as client:
+-            params = {
+-                "start_date": meal_date,
+-                "end_date": meal_date,
+-            }
++            params = _mealplan_params(meal_date, meal_date)
+ 
+-            response = client.get("/api/households/mealplans", params=params)
++            response = _mealplan_entries(client.get("/api/households/mealplans", params=params))
+ 
+             if not response:
+                 return json.dumps({
+@@ -684,7 +702,9 @@ def mealplans_search(
+ 
+         with MealieClient() as client:
+             # Get all meal plans in date range
+-            all_plans = client.get(f"/api/households/mealplans?start_date={start_date}&end_date={end_date}")
++            all_plans = _mealplan_entries(
++                client.get("/api/households/mealplans", params=_mealplan_params(start_date, end_date))
++            )
+ 
+             # Normalize query to lowercase for case-insensitive search
+             query_lower = query.lower()
+@@ -756,7 +776,9 @@ def mealplans_delete_range(
+ 
+         with MealieClient() as client:
+             # Get all meal plans in date range
+-            all_plans = client.get(f"/api/households/mealplans?start_date={start_date}&end_date={end_date}")
++            all_plans = _mealplan_entries(
++                client.get("/api/households/mealplans", params=_mealplan_params(start_date, end_date))
++            )
+ 
+             # Delete each meal plan
+             deleted_count = 0
+diff --git a/src/tools/shopping.py b/src/tools/shopping.py
+index c999a07..e5c4519 100644
+--- a/src/tools/shopping.py
++++ b/src/tools/shopping.py
+@@ -447,6 +447,7 @@ def shopping_generate_from_mealplan(
+             mealplan_response = client.get("/api/households/mealplans", params={
+                 "start_date": start.isoformat(),
+                 "end_date": end.isoformat(),
++                "perPage": -1,
+             })
+ 
+             if not mealplan_response:
+diff --git a/tests/mcp/test_server_basic.py b/tests/mcp/test_server_basic.py
+index 74f051f..62e66e6 100644
+--- a/tests/mcp/test_server_basic.py
++++ b/tests/mcp/test_server_basic.py
+@@ -170,9 +170,10 @@ class TestMCPToolInvocation:
+         # Parse response
+         text = extract_tool_result_text(result)
+         data = json.loads(text)
+-        # The API returns "items" and "total"
+-        assert "items" in data
+-        assert data["total"] == 1
++        # The paginated API response ("items"/"total") is unwrapped and formatted
++        assert data["count"] == 1
++        assert data["entries"][0]["id"] == "meal-1"
++        assert data["entries"][0]["entry_type"] == "dinner"
+ 
+ 
+ class TestMCPToolParameters:
+diff --git a/tests/test_tools_mealplans.py b/tests/test_tools_mealplans.py
+index 0d0ec90..0fce280 100644
+--- a/tests/test_tools_mealplans.py
++++ b/tests/test_tools_mealplans.py
+@@ -1062,3 +1062,63 @@ class TestMealPlansBatchOperations:
+         assert data.get("updated") == 0
+         assert data.get("failed") == 1
+         assert len(data.get("failures", [])) == 1
++
++
++class TestMealplansPaginatedResponse:
++    """Regression: Mealie returns the mealplans list endpoint as a paginated
++    object. Iterating it as a list raised "'str' object has no attribute 'get'"."""
++
++    PLANS = [
++        {"id": 1, "date": "2026-11-11", "entryType": "dinner", "title": "", "text": "",
++         "recipeId": "r1", "recipe": {"id": "r1", "name": "Seafood Mac and Cheese", "slug": "seafood-mac-and-cheese"}},
++        {"id": 2, "date": "2026-11-12", "entryType": "lunch", "title": "Leftovers", "text": None,
++         "recipeId": None, "recipe": None},
++    ]
++
++    def paginated(self):
++        return {"page": 1, "per_page": -1, "total": len(self.PLANS), "total_pages": 1,
++                "items": self.PLANS, "next": None, "previous": None}
++
++    def test_search_handles_paginated_response(self):
++        mock_client = create_mock_client(get_value=self.paginated())
++        with patch('src.tools.mealplans.MealieClient', return_value=mock_client):
++            data = json.loads(mealplans_search("mac", "2026-11-01", "2026-11-30"))
++        assert data.get("success") is True, data
++        assert data["count"] == 1
++        assert data["meal_plans"][0]["id"] == 1
++
++    def test_search_requests_all_pages(self):
++        mock_client = create_mock_client(get_value=self.paginated())
++        with patch('src.tools.mealplans.MealieClient', return_value=mock_client):
++            mealplans_search("mac", "2026-11-01", "2026-11-30")
++        _, kwargs = mock_client.get.call_args
++        assert kwargs["params"]["perPage"] == -1
++
++    def test_delete_range_handles_paginated_response(self):
++        mock_client = create_mock_client(get_value=self.paginated())
++        with patch('src.tools.mealplans.MealieClient', return_value=mock_client):
++            data = json.loads(mealplans_delete_range("2026-11-01", "2026-11-30"))
++        assert data.get("success") is True, data
++        assert data["total_found"] == 2
++        assert data["deleted"] == 2
++
++    def test_get_by_date_handles_paginated_response(self):
++        page = {"page": 1, "items": [self.PLANS[0]], "total": 1}
++        mock_client = create_mock_client(get_value=page)
++        with patch('src.tools.mealplans.MealieClient', return_value=mock_client):
++            data = json.loads(mealplans_get_by_date("2026-11-11"))
++        assert data["count"] == 1
++        assert data["meals"]["dinner"][0]["recipe_name"] == "Seafood Mac and Cheese"
++
++    def test_get_by_date_empty_page(self):
++        mock_client = create_mock_client(get_value={"page": 1, "items": [], "total": 0})
++        with patch('src.tools.mealplans.MealieClient', return_value=mock_client):
++            data = json.loads(mealplans_get_by_date("2026-11-13"))
++        assert data["count"] == 0
++
++    def test_list_formats_paginated_response(self):
++        mock_client = create_mock_client(get_value=self.paginated())
++        with patch('src.tools.mealplans.MealieClient', return_value=mock_client):
++            data = json.loads(mealplans_list("2026-11-01", "2026-11-30"))
++        assert data["count"] == 2
++        assert data["entries"][0]["recipe_name"] == "Seafood Mac and Cheese"
+-- 
+2.43.0
+
