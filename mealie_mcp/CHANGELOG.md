@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.1] - 2026-11-17
+
 ### Fixed
 - OAuth sign-in failed (Gemini couldn't find the sign-in endpoints) when `public_url` included the `/mcp` endpoint path. The path is now removed automatically, with a warning in the log
 
@@ -763,6 +765,7 @@ mealie_recipes_update_structured_ingredients(
 - GitHub Actions CI/CD for automated builds
 - Published to GitHub Container Registry (ghcr.io)
 
+[1.13.1]: https://github.com/warinthestars/mealie-mcp/releases/tag/v1.13.1
 [1.13.0]: https://github.com/warinthestars/mealie-mcp/releases/tag/v1.13.0
 [1.12.3]: https://github.com/warinthestars/mealie-mcp/releases/tag/v1.12.3
 [1.12.2]: https://github.com/warinthestars/mealie-mcp/releases/tag/v1.12.2
