@@ -49,6 +49,11 @@ Open the app's **Configuration** tab.
 | `mealie_url` | yes | Where **this app** can reach Mealie. See [Choosing the Mealie URL](#choosing-the-mealie-url). No trailing slash. |
 | `mealie_api_token` | yes | The token from step 2. |
 | `mcp_auth_token` | strongly recommended | A password that AI clients must send as `Authorization: Bearer <token>`. See [Choosing an MCP token](#choosing-an-mcp-token). |
+| `oauth_enabled` | no | Turns on OAuth sign-in. See [5.5](#55-oauth-sign-in-claude-chatgpt-gemini). |
+| `public_url` | with OAuth | Public HTTPS address of this app, without `/mcp`. |
+| `oauth_password` | no | Typed on the sign-in page when a client connects. Defaults to `mcp_auth_token`. |
+| `oauth_client_id` / `oauth_client_secret` | no | A fixed client for apps that require one (e.g. Gemini). |
+| `oauth_redirect_uris` | no | Comma-separated callback allowlist for that fixed client. Empty allows any `https` callback. |
 | `log_level` | no | `info` by default; `debug` for troubleshooting. |
 
 The MCP server listens on container port 8099. To use a different host port,
@@ -246,6 +251,40 @@ claude mcp add --transport http mealie http://192.168.1.10:8099/mcp \
 If the integration can't authenticate with a static bearer token, it gets 401
 errors. In that case you'd have to leave `mcp_auth_token` empty, which is only
 safe if port 8099 isn't reachable from outside your network.
+
+### 5.5 OAuth sign-in (Claude, ChatGPT, Gemini)
+
+Hosted connectors usually sign in with OAuth instead of sending a bearer
+header. With `oauth_enabled` on, the app runs its own OAuth server (built on
+FastMCP). `mcp_auth_token` keeps working as a bearer token, so local clients
+don't change.
+
+1. Publish the app on a public HTTPS URL (see 5.2).
+2. On the **Configuration** tab:
+   - `oauth_enabled`: on
+   - `public_url`: `https://mealie-mcp.example.com`
+   - `oauth_password` (optional): what you'll type to approve a connection.
+     Defaults to `mcp_auth_token`.
+   - Only for Gemini or other clients that insist on a fixed client ID and
+     secret: `oauth_client_id` (any name, e.g. `mealie-mcp`) and
+     `oauth_client_secret` (e.g. from
+     `python -c "import secrets; print(secrets.token_hex(32))"`).
+
+   Save and restart. The log shows `auth: bearer token + OAuth`.
+3. Add the connector with URL `https://mealie-mcp.example.com/mcp`:
+   - **Claude / ChatGPT:** leave the OAuth client ID and secret fields empty.
+     They register themselves.
+   - **Gemini:** enter `oauth_client_id` and `oauth_client_secret`. If it asks
+     for endpoints: authorization URL `https://mealie-mcp.example.com/authorize`,
+     token URL `https://mealie-mcp.example.com/token`.
+4. A **Connect to Mealie MCP** page opens. Enter the approval password and
+   click **Allow**.
+
+Anyone can register a client, but nobody gets in without the approval
+password, and repeated wrong passwords are blocked for 10 minutes. Access
+tokens last an hour and refresh automatically for 90 days. Clients and token
+hashes are stored in `/data/oauth_state.json`; delete it and restart to
+disconnect every OAuth client.
 
 ## 6. Updating
 

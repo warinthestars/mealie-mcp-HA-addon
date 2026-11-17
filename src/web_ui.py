@@ -92,6 +92,10 @@ def _category(name: str) -> str:
     return "Other"
 
 
+def _oauth_on() -> bool:
+    return os.getenv("MCP_OAUTH_ENABLED", "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def _allowed(request: Request) -> bool:
     if os.getenv("MCP_UI_ENABLED", "1") == "0":
         return False
@@ -202,7 +206,8 @@ def register_ui(mcp) -> None:
                 "transport": os.getenv("MCP_TRANSPORT", "stdio"),
                 "port": int(os.getenv("MCP_PORT", "8099")),
                 "path": os.getenv("MCP_PATH", "/mcp"),
-                "auth_enabled": bool(os.getenv("MCP_AUTH_TOKEN", "").strip()),
+                "auth_enabled": bool(os.getenv("MCP_AUTH_TOKEN", "").strip()) or _oauth_on(),
+                "oauth_enabled": _oauth_on(),
                 "in_home_assistant": in_addon(),
                 "hostname": os.getenv("HOSTNAME", ""),
             },
@@ -401,7 +406,7 @@ async function loadStatus(){
    ${m.user?`<dt>Token user</dt><dd>${esc(m.user)} ${m.admin?'<span class="pill ok">admin</span>':'<span class="pill warn">not admin</span>'}</dd>`:''}
    ${m.error?`<dt>Error</dt><dd>${esc(m.error)}</dd>`:''}`;
   $('#server-kv').innerHTML=`<dt>Version</dt><dd>${esc(s.version)}</dd><dt>Uptime</dt><dd>${fmtUp(s.uptime_seconds)}</dd>
-   <dt>Endpoint</dt><dd>:${s.port}${esc(s.path)}</dd><dt>Auth</dt><dd>${s.auth_enabled?'<span class="pill ok">Bearer token</span>':'<span class="pill bad">None</span>'}</dd>`;
+   <dt>Endpoint</dt><dd>:${s.port}${esc(s.path)}</dd><dt>Auth</dt><dd>${s.auth_enabled?'<span class="pill ok">'+(s.oauth_enabled?'Bearer token / OAuth':'Bearer token')+'</span>':'<span class="pill bad">None</span>'}</dd>`;
   $('#tool-stat').innerHTML=`${STATUS.tools.total-STATUS.tools.disabled}<small>of ${STATUS.tools.total} tools enabled</small>`;
   const w=[];if(!s.auth_enabled)w.push('No MCP bearer token is set, so anyone who can reach port '+s.port+' can use this server. Set one on the app\'s Configuration tab.');
   if(!m.connected)w.push('The server cannot reach Mealie. Check the Mealie URL and API token on the Configuration tab.');

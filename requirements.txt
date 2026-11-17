@@ -1,6 +1,6 @@
 # FastMCP - Model Context Protocol framework
-# FORK: >=2.3.2 required for http_app(middleware=...) used by src/http_transport.py
-fastmcp>=2.3.2
+# FORK: >=4.1 required for OAuthProvider (src/oauth.py); http_app(middleware=...) needs >=2.3.2
+fastmcp>=4.1
 
 # HTTP client for Mealie API
 httpx>=0.27.0

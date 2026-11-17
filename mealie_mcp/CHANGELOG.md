@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- OAuth sign-in, so Claude and ChatGPT connectors and Gemini can connect without a bearer header. Turn on `oauth_enabled` and set `public_url` (see the docs, section 5.5). Claude and ChatGPT register themselves; Gemini uses the new optional `oauth_client_id` / `oauth_client_secret`. Every new connection must be approved with a password on a sign-in page (`oauth_password`, defaults to the MCP bearer token)
+- New options: `oauth_enabled`, `public_url`, `oauth_password`, `oauth_client_id`, `oauth_client_secret`, `oauth_redirect_uris`
+
+### Changed
+- The MCP bearer token keeps working alongside OAuth, so existing clients don't change
+- Requires FastMCP 4.1 or newer
+
 ## [1.12.3] - 2026-11-13
 
 ### Fixed

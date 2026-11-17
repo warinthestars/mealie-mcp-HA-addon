@@ -24,9 +24,16 @@ options:
   mealie_url: ""
   mealie_api_token: ""
   mcp_auth_token: ""
+  oauth_enabled: false
   log_level: info
 schema:
   mealie_url: url
   mealie_api_token: password
   mcp_auth_token: password?
+  oauth_enabled: bool
+  public_url: url?
+  oauth_client_id: str?
+  oauth_client_secret: password?
+  oauth_password: password?
+  oauth_redirect_uris: str?
   log_level: list(debug|info|warning|error)

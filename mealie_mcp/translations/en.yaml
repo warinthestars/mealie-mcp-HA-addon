@@ -8,6 +8,24 @@ configuration:
   mcp_auth_token:
     name: MCP bearer token
     description: Strongly recommended. Clients must send the header "Authorization Bearer <token>". Use letters and digits only (32+ characters).
+  oauth_enabled:
+    name: Enable OAuth sign-in
+    description: For clients that sign in with OAuth instead of a bearer header (Claude and ChatGPT connectors, Gemini). Needs Public URL. The bearer token keeps working.
+  public_url:
+    name: Public URL
+    description: OAuth only. The public HTTPS address this app is published at, without /mcp, e.g. https://mealie-mcp.example.com.
+  oauth_password:
+    name: OAuth approval password
+    description: Typed on the sign-in page when a client connects. Defaults to the MCP bearer token.
+  oauth_client_id:
+    name: OAuth client ID (optional)
+    description: Only for clients that require a fixed client ID and secret (e.g. Gemini). Make up any value and enter the same one in the client. Claude and ChatGPT register themselves and don't need this.
+  oauth_client_secret:
+    name: OAuth client secret (optional)
+    description: Goes with the client ID above. Long random value (32+ characters).
+  oauth_redirect_uris:
+    name: OAuth redirect URIs (optional)
+    description: Comma-separated callback allowlist for the fixed client ID above. Empty allows any https callback.
   log_level:
     name: Log level
     description: Web server log verbosity.
