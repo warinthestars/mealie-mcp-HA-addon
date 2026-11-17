@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Gemini custom connectors couldn't find the OAuth sign-in endpoints: Gemini looks for them under the `/mcp` endpoint path instead of where the server points it. The sign-in metadata is now served there too
+
 ## [1.13.1] - 2026-11-17
 
 ### Fixed

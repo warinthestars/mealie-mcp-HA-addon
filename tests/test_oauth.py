@@ -162,3 +162,13 @@ def test_public_url_with_mcp_path_still_discoverable(env, monkeypatch):
         assert prm["resource"] == BASE + "/mcp"
         assert prm["authorization_servers"] == [BASE + "/"] or prm["authorization_servers"] == [BASE]
         assert c.get("/.well-known/oauth-authorization-server").status_code == 200
+
+
+def test_metadata_at_endpoint_path_for_gemini(client):
+    for path in ("/.well-known/oauth-authorization-server/mcp", "/mcp/.well-known/oauth-authorization-server"):
+        r = client.get(path)
+        assert r.status_code == 200, path
+        md = r.json()
+        assert md["issuer"] == BASE + "/mcp"
+        assert md["authorization_endpoint"] == BASE + "/authorize"
+        assert md["token_endpoint"] == BASE + "/token"
