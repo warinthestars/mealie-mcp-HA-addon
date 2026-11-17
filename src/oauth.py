@@ -84,11 +84,28 @@ def _eq(a: str, b: str) -> bool:
     return hmac.compare_digest(a.encode(), b.encode())
 
 
+def _public_url() -> tuple[str, bool]:
+    """MCP_PUBLIC_URL without a trailing slash or MCP endpoint path.
+
+    A common mistake is pasting the full endpoint (https://host/mcp). The
+    server appends the path itself, so keeping it would advertise /mcp/mcp and
+    move every OAuth endpoint under /mcp, where nothing answers. Returns
+    (url, was_corrected).
+    """
+    url = os.getenv("MCP_PUBLIC_URL", "").strip().rstrip("/")
+    mcp_path = "/" + os.getenv("MCP_PATH", "/mcp").strip("/")
+    if mcp_path != "/" and url.endswith(mcp_path):
+        return url[: -len(mcp_path)].rstrip("/"), True
+    return url, False
+
+
 def oauth_settings() -> dict[str, Any]:
     """OAuth configuration from the environment (shared with run.py / web UI)."""
+    public_url, corrected = _public_url()
     return {
         "enabled": os.getenv("MCP_OAUTH_ENABLED", "").strip().lower() in ("1", "true", "yes", "on"),
-        "public_url": os.getenv("MCP_PUBLIC_URL", "").strip().rstrip("/"),
+        "public_url": public_url,
+        "public_url_corrected": corrected,
         "password": (os.getenv("MCP_OAUTH_PASSWORD", "").strip()
                      or os.getenv("MCP_AUTH_TOKEN", "").strip()),
         "client_id": os.getenv("MCP_OAUTH_CLIENT_ID", "").strip(),

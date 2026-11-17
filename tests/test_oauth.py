@@ -147,3 +147,18 @@ def test_tokens_survive_restart(env):
 def test_settings_disabled_by_default(monkeypatch):
     monkeypatch.delenv("MCP_OAUTH_ENABLED", raising=False)
     assert oauth_settings()["enabled"] is False
+
+
+@pytest.mark.parametrize("value", [BASE, BASE + "/", BASE + "/mcp", BASE + "/mcp/"])
+def test_public_url_strips_endpoint_path(monkeypatch, value):
+    monkeypatch.setenv("MCP_PUBLIC_URL", value)
+    assert oauth_settings()["public_url"] == BASE
+
+
+def test_public_url_with_mcp_path_still_discoverable(env, monkeypatch):
+    monkeypatch.setenv("MCP_PUBLIC_URL", BASE + "/mcp")
+    with _client() as c:
+        prm = c.get("/.well-known/oauth-protected-resource/mcp").json()
+        assert prm["resource"] == BASE + "/mcp"
+        assert prm["authorization_servers"] == [BASE + "/"] or prm["authorization_servers"] == [BASE]
+        assert c.get("/.well-known/oauth-authorization-server").status_code == 200

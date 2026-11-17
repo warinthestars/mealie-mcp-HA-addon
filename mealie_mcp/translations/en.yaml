@@ -13,7 +13,7 @@ configuration:
     description: For clients that sign in with OAuth instead of a bearer header (Claude and ChatGPT connectors, Gemini). Needs Public URL. The bearer token keeps working.
   public_url:
     name: Public URL
-    description: OAuth only. The public HTTPS address this app is published at, without /mcp, e.g. https://mealie-mcp.example.com.
+    description: OAuth only. The public HTTPS address this app is published at, WITHOUT /mcp on the end, e.g. https://mealie-mcp.example.com.
   oauth_password:
     name: OAuth approval password
     description: Typed on the sign-in page when a client connects. Defaults to the MCP bearer token.

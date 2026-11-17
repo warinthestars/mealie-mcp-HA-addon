@@ -89,6 +89,9 @@ def run_http(mcp) -> None:
                 print("ERROR: OAuth is enabled but not configured: " + " ".join(problems)
                       + " Continuing without OAuth.", flush=True)
             else:
+                if cfg.get("public_url_corrected"):
+                    print(f"WARNING: public_url should not include the endpoint path; "
+                          f"using {cfg['public_url']}", flush=True)
                 mcp.auth = MealieOAuthProvider(cfg)
                 oauth_on = True
     except Exception as e:
