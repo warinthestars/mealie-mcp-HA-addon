@@ -11,6 +11,9 @@ Environment variables:
     MCP_AUTH_TOKEN  Optional bearer token. When set, every request must send
                     "Authorization: Bearer <token>".
     MCP_LOG_LEVEL   Uvicorn log level (default: info)
+    MCP_OAUTH_*     FORK: optional OAuth sign-in (see oauth.py). When enabled,
+                    FastMCP's auth handles the endpoint and still accepts
+                    MCP_AUTH_TOKEN as a bearer token.
 """
 
 import hmac
@@ -74,12 +77,30 @@ def run_http(mcp) -> None:
     except Exception as e:  # the MCP endpoint must still start if the UI fails
         print(f"Web UI not available: {e}", flush=True)
 
-    middleware = [Middleware(BearerAuthMiddleware, token=token)] if token else []
+    # FORK: OAuth sign-in (oauth.py). FastMCP's auth then guards the endpoint,
+    # so the plain bearer middleware isn't used.
+    oauth_on = False
+    try:
+        from oauth import MealieOAuthProvider, config_problems, oauth_settings
+        cfg = oauth_settings()
+        if cfg["enabled"]:
+            problems = config_problems(cfg)
+            if problems:
+                print("ERROR: OAuth is enabled but not configured: " + " ".join(problems)
+                      + " Continuing without OAuth.", flush=True)
+            else:
+                mcp.auth = MealieOAuthProvider(cfg)
+                oauth_on = True
+    except Exception as e:
+        print(f"ERROR: OAuth not available: {e}. Continuing without OAuth.", flush=True)
+
+    middleware = [Middleware(BearerAuthMiddleware, token=token)] if (token and not oauth_on) else []
     app = mcp.http_app(path=path, middleware=middleware)
 
+    modes = [m for m, on in (("bearer token", token), ("OAuth", oauth_on)) if on]
     print(
         f"Mealie MCP server listening on http://{host}:{port}{path} "
-        f"(auth: {'bearer token' if token else 'NONE'})",
+        f"(auth: {' + '.join(modes) or 'NONE'})",
         flush=True,
     )
     uvicorn.run(app, host=host, port=port, log_level=log_level)

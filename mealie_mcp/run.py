@@ -23,6 +23,13 @@ if OPTIONS_FILE.exists():
         "mealie_api_token": "MEALIE_API_TOKEN",
         "mcp_auth_token": "MCP_AUTH_TOKEN",
         "log_level": "MCP_LOG_LEVEL",
+        # FORK: built-in OAuth server (src/oauth.py)
+        "oauth_enabled": "MCP_OAUTH_ENABLED",
+        "public_url": "MCP_PUBLIC_URL",
+        "oauth_client_id": "MCP_OAUTH_CLIENT_ID",
+        "oauth_client_secret": "MCP_OAUTH_CLIENT_SECRET",
+        "oauth_password": "MCP_OAUTH_PASSWORD",
+        "oauth_redirect_uris": "MCP_OAUTH_REDIRECT_URIS",
     }
     for key, env in mapping.items():
         value = opts.get(key)
@@ -37,7 +44,8 @@ if missing:
           "Set them on the app's Configuration tab.", flush=True)
     sys.exit(1)
 
-if not os.environ.get("MCP_AUTH_TOKEN"):
+if not os.environ.get("MCP_AUTH_TOKEN") and os.environ.get(
+        "MCP_OAUTH_ENABLED", "").lower() not in ("1", "true", "yes", "on"):
     print("WARNING: mcp_auth_token is empty - the MCP endpoint is open to "
           "anyone who can reach this port on your network.", flush=True)
 
