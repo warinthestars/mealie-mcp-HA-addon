@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- OAuth sign-in failed (Gemini couldn't find the sign-in endpoints) when `public_url` included the `/mcp` endpoint path. The path is now removed automatically, with a warning in the log
+
 ## [1.13.0] - 2026-11-17
 
 ### Added
