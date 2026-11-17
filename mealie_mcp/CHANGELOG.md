@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-11-17
+
 ### Added
 - OAuth sign-in, so Claude and ChatGPT connectors and Gemini can connect without a bearer header. Turn on `oauth_enabled` and set `public_url` (see the docs, section 5.5). Claude and ChatGPT register themselves; Gemini uses the new optional `oauth_client_id` / `oauth_client_secret`. Every new connection must be approved with a password on a sign-in page (`oauth_password`, defaults to the MCP bearer token)
 - New options: `oauth_enabled`, `public_url`, `oauth_password`, `oauth_client_id`, `oauth_client_secret`, `oauth_redirect_uris`
@@ -758,6 +760,7 @@ mealie_recipes_update_structured_ingredients(
 - GitHub Actions CI/CD for automated builds
 - Published to GitHub Container Registry (ghcr.io)
 
+[1.13.0]: https://github.com/warinthestars/mealie-mcp/releases/tag/v1.13.0
 [1.12.3]: https://github.com/warinthestars/mealie-mcp/releases/tag/v1.12.3
 [1.12.2]: https://github.com/warinthestars/mealie-mcp/releases/tag/v1.12.2
 [1.12.1]: https://github.com/warinthestars/mealie-mcp/releases/tag/v1.12.1
